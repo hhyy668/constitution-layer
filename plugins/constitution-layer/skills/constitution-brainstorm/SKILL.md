@@ -166,6 +166,7 @@ digraph flow {
 
 ## 与其他流程的关系
 
-**REQUIRED SUB-SKILL:** 上游两阶段审查沿用 `superpowers:requesting-code-review`，本技能不复述。
-
 本技能只负责**开工前的合法性检验**，不负责后续审查。
+
+若已安装 `superpowers`，其两阶段审查可继续沿用，本技能不复述。
+**未安装不影响使用** —— 审查由 `references/review-criteria.md` 的三档判据独立完成。

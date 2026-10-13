@@ -1,0 +1,13 @@
+# 全仓库文本文件统一使用 LF
+#
+# 本项目对换行符敏感：钩子脚本曾因 CRLF 解析失败。
+# 显式钉死 LF，避免不同平台 clone 后换行符漂移。
+* text=auto eol=lf
+
+# 明确的二进制文件，不做换行符转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary

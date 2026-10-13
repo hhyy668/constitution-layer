@@ -1,0 +1,16 @@
+{
+  "name": "constitution-layer",
+  "description": "为项目建立专属宪法与心智模型，在任何 spec、plan 或编码之前完成合法性检验",
+  "version": "0.1.0",
+  "author": {
+    "name": "constitution-layer contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "constitution",
+    "mental-model",
+    "decision-axes",
+    "workflow",
+    "skills"
+  ]
+}

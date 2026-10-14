@@ -83,6 +83,26 @@ test('取不到会话 cwd 时回退并告警（不静默）', () => {
   assert.match(calls.warnings[0], /回退 process\.cwd\(\)/);
 });
 
+test('同一个实例只告警一次 —— text() 每次装配都跑，重复刷会淹掉一次性信号', () => {
+  const { ctx, calls } = mockCtx({ agents: { currentInitiator: () => ({}) } });
+  apply(ctx);
+
+  for (let i = 0; i < 5; i += 1) calls.sections[0].text();
+  assert.equal(calls.warnings.length, 1, '5 次装配仍只应有一条回退告警');
+});
+
+test('不同实例各自告警，互不吞掉', () => {
+  const a = mockCtx({ agents: { currentInitiator: () => ({}) } });
+  const b = mockCtx({ agents: { currentInitiator: () => ({}) } });
+  apply(a.ctx);
+  apply(b.ctx);
+
+  a.calls.sections[0].text();
+  b.calls.sections[0].text();
+  assert.equal(a.calls.warnings.length, 1);
+  assert.equal(b.calls.warnings.length, 1, '去重按实例，不能跨实例吞告警');
+});
+
 test('currentInitiator 抛错时不崩，同样告警', () => {
   const { ctx, calls } = mockCtx({
     agents: { currentInitiator: () => { throw new Error('no initiator'); } },
@@ -104,7 +124,7 @@ test('注册技能：字段齐全，正文已去掉 frontmatter，且带 resourc
   assert.ok(s.description.length > 0);
   assert.ok(s.content.length > 0, '正文不应为空');
   assert.doesNotMatch(s.content, /^---/, '正文不应残留 frontmatter 分隔符');
-  assert.equal(s.source, 'bundled');
+  assert.equal(s.source, 'runtime');
   assert.equal(s.resourceBase.kind, 'directory');
   assert.match(s.resourceBase.path, /constitution-brainstorm$/);
 });

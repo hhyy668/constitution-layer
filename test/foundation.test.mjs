@@ -136,3 +136,40 @@ test('同名目录不算判断依据，也不会被当成已提供', () => {
   assert.doesNotMatch(text, /--- BEGIN CONSTITUTION\.md ---/);
   assert.match(text, /缺少项目专属判断依据：CONSTITUTION\.md/);
 });
+
+test('缺文件时不留根缓存：上层新写的宪法必须立刻生效', () => {
+  clearFoundationCache();
+  const root = tempDir();
+  const nested = join(root, 'packages', 'app');
+  mkdirSync(nested, { recursive: true });
+
+  // 一开始两份都缺 → 根回退为起点
+  assert.match(renderFoundation(nested), /缺少项目专属判断依据：CONSTITUTION\.md, MENTAL-MODEL\.md/);
+
+  // 在上层写出宪法 → 下一次渲染必须认到新的根，不能被上一次的结果钉死
+  writeFileSync(join(root, 'CONSTITUTION.md'), '# 宪法\n');
+  const text = renderFoundation(nested);
+
+  assert.match(text, /--- BEGIN CONSTITUTION\.md ---/, '新写的宪法应立即被注入');
+  assert.match(text, /<FOUNDATION-LOCATION>/, '此时根已不同于起点，应标明位置');
+});
+
+test('缓存过的根里文件被删，下一次立刻报缺', () => {
+  clearFoundationCache();
+  const root = tempDir();
+  writeFileSync(join(root, 'CONSTITUTION.md'), '# 宪法\n');
+  writeFileSync(join(root, 'MENTAL-MODEL.md'), '# 心智模型\n');
+  assert.doesNotMatch(renderFoundation(root), /MISSING-FOUNDATION/);
+
+  rmSync(join(root, 'MENTAL-MODEL.md'));
+  assert.match(renderFoundation(root), /缺少项目专属判断依据：MENTAL-MODEL\.md/);
+});
+
+test('两份齐全时重复渲染结果稳定', () => {
+  clearFoundationCache();
+  const root = tempDir();
+  writeFileSync(join(root, 'CONSTITUTION.md'), '# 宪法\n');
+  writeFileSync(join(root, 'MENTAL-MODEL.md'), '# 心智模型\n');
+
+  assert.equal(renderFoundation(root), renderFoundation(root), '缓存不得让结果漂移');
+});

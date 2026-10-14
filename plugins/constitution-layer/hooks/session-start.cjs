@@ -33,8 +33,6 @@ function readStdin() {
   });
 }
 
-// 向上逐级查找项目根：命中任一判断依据文件即停。
-// 只锚定宪法会让「仅有心智模型的项目」被误报为两者皆缺。
 // 是否为常规文件。目录、指向目录的链接都不算 ——
 // 否则「同名目录」会通过存在性检查却在读取时失败，出现两侧判定不一致。
 function isFoundationFile(p) {
@@ -45,6 +43,8 @@ function isFoundationFile(p) {
   }
 }
 
+// 向上逐级查找项目根：命中任一判断依据文件即停。
+// 只锚定宪法会让「仅有心智模型的项目」被误报为两者皆缺。
 function findProjectRoot(startDir) {
   let dir = path.resolve(startDir);
   for (;;) {

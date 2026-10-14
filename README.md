@@ -143,7 +143,8 @@ DSH 与 CodeBuddy 共用同一份 `SKILL.md`，两条注入路径各自独立：
 │   └── foundation.js                       判断依据的定位与渲染（纯逻辑，可单测）
 ├── test/
 │   ├── foundation.test.mjs                 判据测试（定位与渲染）
-│   └── index.test.mjs                      插件装载测试（section / 技能注册）
+│   ├── index.test.mjs                      插件装载测试（section / 技能注册）
+│   └── parity.test.mjs                     两套实现的判据一致性
 ├── CONSTITUTION.md                         ← 本项目自己的宪法（见下方说明）
 ├── MENTAL-MODEL.md                         ← 本项目自己的心智模型
 ├── FRICTION-LOG.md                         ← 使用中的摩擦记录

@@ -87,11 +87,60 @@
 
 ## 兼容性
 
-| 平台 | 状态 |
-|---|---|
-| WorkBuddy / CodeBuddy | 原生支持 |
-| Claude Code | 插件格式同源（`.claude-plugin`），钩子事件结构一致 —— 理论上可直接使用，**未实机验证** |
-| 其它智能体 | 技能部分（`SKILL.md`）可直接复用；钩子需按各家机制适配 |
+| 平台 | 技能 | 自动注入 | 备注 |
+|---|---|---|---|
+| WorkBuddy / CodeBuddy | ✅ 原生 | ✅ SessionStart 钩子 | 完整支持 |
+| DeepSeek Harness（dsh） | ✅ 原生 | ⚠️ 改用 `AGENTS.md` | 见下节 |
+| Claude Code | ✅ 格式相同 | ⚠️ 未实机验证 | 插件清单目录名与 WorkBuddy 互通 |
+| 其它智能体 | ✅ 可直接复用 | ❌ 需按各家机制适配 | |
+
+**判断依据本身（两份 md 文件）与平台无关**，在任何智能体上都能用。
+差异只在于「怎么保证它被看到」。
+
+## 在 DeepSeek Harness 上使用
+
+[dsh](https://github.com/deepseek-ai/deepseek-harness) 的技能格式与本插件一致
+（`name` + `description` 必填、目录式 `<name>/SKILL.md`），**技能无需改动**。
+
+### 安装技能
+
+dsh 的技能根，按优先级：
+
+| 优先级 | 路径 | 适用范围 |
+|---|---|---|
+| 100 | `<项目>/.dsh/skills/` | 仅该项目，最高优先 |
+| 200 | `<项目>/.agents/skills/` | 该项目，可提交进 git 团队共享 |
+| 400 | `~/.dsh/skills/` | 个人全局 |
+| 500 | `~/.agents/skills/` | 全局共享 |
+
+```bash
+mkdir -p ~/.dsh/skills
+cp -r plugins/constitution-layer/skills/constitution-brainstorm ~/.dsh/skills/
+```
+
+dsh 会热更新技能目录，改完不用重启。
+
+### 自动注入：改用 AGENTS.md
+
+dsh 没有 `SessionStart` 钩子，但有等价的 **`AGENTS.md` / `CLAUDE.md`** ——
+会话开始时作为**用户消息前缀无条件注入**（渲染上限 64KB，改动自动热替换）。
+这正是本插件「无条件推送、不给裁量空间」所需的机制。
+
+在项目的 `AGENTS.md` 里加一段即可：
+
+```markdown
+## 项目判断依据（开工前必读）
+
+本项目的判断依据在同目录两份文件中：
+- `CONSTITUTION.md` —— 什么能做、什么不能做
+- `MENTAL-MODEL.md` —— 遇到冲突时怎么决策
+
+**开工前必须完整读取这两份文件。缺失任一时停下并提示开发者补齐，不得跳过。**
+```
+
+> 想让判断依据**原文直接进入上下文**（而非让智能体去读），
+> 需要为 dsh 编写 Cordis 插件。dsh 目前是 v0.1 开发者预览版，
+> 核心接口仍在快速演进，插件方案建议等接口稳定后再做。
 
 ## 目录结构
 

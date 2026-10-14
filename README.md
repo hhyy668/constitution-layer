@@ -76,7 +76,7 @@ target: link:/绝对路径/constitution-layer
 
 | 平台 | 注入方式 | 时机 |
 |---|---|---|
-| WorkBuddy / CodeBuddy | `SessionStart` 钩子（`hooks/session-start.js`） | 会话启动时注入一次 |
+| WorkBuddy / CodeBuddy | `SessionStart` 钩子（`hooks/session-start.cjs`） | 会话启动时注入一次 |
 | DeepSeek Harness | 常驻 prompt section（`lib/index.js`） | 每次装配重读，压缩、恢复、子会话都自然带上 |
 
 DSH 侧注册 section 时带 `interpolate: false`：DSH 的 runtime context 会对正文做
@@ -141,7 +141,9 @@ DSH 与 CodeBuddy 共用同一份 `SKILL.md`，两条注入路径各自独立：
 ├── lib/
 │   ├── index.js                            DSH 插件入口：常驻 section + 注册技能
 │   └── foundation.js                       判断依据的定位与渲染（纯逻辑，可单测）
-├── test/foundation.test.mjs                判据测试
+├── test/
+│   ├── foundation.test.mjs                 判据测试（定位与渲染）
+│   └── index.test.mjs                      插件装载测试（section / 技能注册）
 ├── CONSTITUTION.md                         ← 本项目自己的宪法（见下方说明）
 ├── MENTAL-MODEL.md                         ← 本项目自己的心智模型
 ├── FRICTION-LOG.md                         ← 使用中的摩擦记录
@@ -150,7 +152,7 @@ DSH 与 CodeBuddy 共用同一份 `SKILL.md`，两条注入路径各自独立：
     ├── .codebuddy-plugin/plugin.json
     ├── hooks/
     │   ├── hooks.json                     注册 SessionStart
-    │   └── session-start.js               注入判断依据 + 缺失检查
+    │   └── session-start.cjs              注入判断依据 + 缺失检查
     └── skills/constitution-brainstorm/
         ├── SKILL.md                       引导流程（两个平台共用）
         └── references/                    完备性检查判据 / 审查判据
@@ -158,7 +160,7 @@ DSH 与 CodeBuddy 共用同一份 `SKILL.md`，两条注入路径各自独立：
 
 两套平台的清单文件互不引用：DSH 只看根目录的 `package.json` / `cordis.patch.yml` / `lib/`，
 CodeBuddy 只看 `.codebuddy-plugin/` 与 `plugins/constitution-layer/`。
-`lib/foundation.js` 与 `hooks/session-start.js` 是同一套判据的两份实现 ——
+`lib/foundation.js` 与 `hooks/session-start.cjs` 是同一套判据的两份实现 ——
 改判据时两边都要动，`test/foundation.test.mjs` 覆盖的是 DSH 侧那份。
 
 根目录那三份文件不是模板，是**这个项目自己在用的**——本插件对自己生效（dogfooding）。

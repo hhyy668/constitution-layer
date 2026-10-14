@@ -6,16 +6,19 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 
-import { apply, name as pluginName } from '../lib/index.js';
+import { OPT_OUT_FILE } from '../lib/foundation.js';
+import { apply, name as pluginName, safeRender } from '../lib/index.js';
 
 const roots = [];
+/** 带 .git 的临时目录：把向上查找钉在这里，结果与机器上层状态无关。 */
 function tempDir() {
   const d = mkdtempSync(join(tmpdir(), 'index-test-'));
+  mkdirSync(join(d, '.git'));
   roots.push(d);
   return d;
 }
@@ -134,4 +137,29 @@ test('服务缺失时回调不执行，插件装载不抛错', () => {
   assert.doesNotThrow(() => apply(ctx));
   assert.equal(calls.sections.length, 1);
   assert.equal(calls.skills.length, 0);
+});
+
+test('渲染抛错时降级为空串并告警 —— 装配绝不能因为这段建议文本而失败', () => {
+  // 给足 agents，让 cwd 正常取到：这样唯一可能的告警就只剩渲染失败那一条。
+  const { ctx, calls } = mockCtx({
+    agents: { currentInitiator: () => ({ session: { header: { cwd: process.cwd() } } }) },
+  });
+  const boom = () => {
+    throw new Error('磁盘炸了');
+  };
+
+  assert.equal(safeRender(ctx, boom), '', '应降级为空串');
+  assert.equal(calls.warnings.length, 1, '降级必须留痕');
+  assert.match(calls.warnings[0], /渲染判断依据失败/);
+});
+
+test('项目主动关闭时 section 注入空串（不提示、不复述缺失）', () => {
+  const root = tempDir();
+  writeFileSync(join(root, OPT_OUT_FILE), '本项目不要判断依据\n');
+
+  const { ctx, calls } = mockCtx({ agents: { currentInitiator: () => ({ session: { header: { cwd: root } } }) } });
+  apply(ctx);
+
+  assert.equal(calls.sections[0].text(), '', '关闭后不应注入任何内容');
+  assert.equal(calls.warnings.length, 0, '主动关闭是正常路径，不应告警');
 });

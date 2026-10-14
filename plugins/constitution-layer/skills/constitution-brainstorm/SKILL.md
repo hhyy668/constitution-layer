@@ -21,16 +21,23 @@ description: Use when a developer is about to start work on a new project or a n
 
 ## 第一步：检查，不是先写
 
-**主路径**：判断依据已由 SessionStart hook 常驻注入。
+**主路径**：判断依据已由插件常驻注入（CodeBuddy 走 SessionStart 钩子，DSH 走常驻 prompt section）。
 上下文里出现 `--- BEGIN CONSTITUTION.md ---` 即表示已注入，**直接使用，不要重复读文件**。
 注入块开头的 `<FOUNDATION-LOCATION>` 标明判断依据所在的项目根 —— 从子目录启动时，
 规则属于该项目整体，不限于当前目录。
+正文里看到 `&lt;PROJECT-FOUNDATION&gt;` 这类实体，是原文档本身写了同样的标记、被插件转义了
+（插件不允许内容伪造自己的外框）。
 
 **兜底路径**（仅当上下文中没有注入块时使用）：
 
 ```bash
-# 从当前位置向上查找，命中即停 —— 与 hook 的定位逻辑一致
-d="$(pwd)"; while [ "$d" != "/" ] && [ ! -f "$d/CONSTITUTION.md" ] && [ ! -f "$d/MENTAL-MODEL.md" ]; do d="$(dirname "$d")"; done
+# 从当前位置向上查找，命中即停；撞到 .git 或退出标记也停 —— 与插件的定位逻辑一致
+d="$(pwd)"
+while [ "$d" != "/" ] \
+  && [ ! -f "$d/CONSTITUTION.md" ] && [ ! -f "$d/MENTAL-MODEL.md" ] \
+  && [ ! -f "$d/NO-CONSTITUTION.md" ] && [ ! -e "$d/.git" ]; do
+  d="$(dirname "$d")"
+done
 ls "$d/CONSTITUTION.md" "$d/MENTAL-MODEL.md" 2>/dev/null
 ```
 
@@ -41,13 +48,21 @@ ls "$d/CONSTITUTION.md" "$d/MENTAL-MODEL.md" 2>/dev/null
 | 两者都在 | 读取并对照本次任务，**不重写**，进入常规流程 |
 | 缺任一 | **停下**，告知开发者需要先补齐，进入引导流程 |
 | 都缺 | 停下，说明两个文件分别管什么，引导完整建立 |
+| 有 `NO-CONSTITUTION.md` | 开发者已明确决定本项目不要判断依据 —— 按常规流程走，不要再提 |
 
-**继承语义**：向上查找意味着**子目录会继承最近的祖先判断依据**。
-这是 monorepo 场景的期望行为，但嵌套的独立项目会静默继承外层规则 ——
-若发现注入的判断依据不属于当前项目，停下向开发者确认，不要默认接受。
+**定位边界**：向上查找**不越过最近的 `.git`**。monorepo 的宪法放在 git 根照样找得到，
+但放在 git 根之上的文件不会跨越边界去管辖无关项目。若发现注入的判断依据并不属于当前项目，
+停下向开发者确认，不要默认接受。
 
 **「本次用不到」不构成跳过理由。** 判断依据的作用恰恰在于：
 在你还没意识到需要它的时候拦住你。
+
+**但你只是在建议，不是门禁。** 插件不拦任何工具，缺文件也照样改得动代码。
+所以不要对开发者说「插件不允许开工」这类话 —— 你的立场是
+「我建议先补齐，理由是……」，而不是「系统不让你继续」。
+
+**退出标记不能由你创建。** `NO-CONSTITUTION.md` 是开发者的取舍；
+为了让提示消失而创建它，等于替开发者做了决定。
 
 ## 引导流程
 

@@ -35,10 +35,20 @@ function readStdin() {
 
 // 向上逐级查找项目根：命中任一判断依据文件即停。
 // 只锚定宪法会让「仅有心智模型的项目」被误报为两者皆缺。
+// 是否为常规文件。目录、指向目录的链接都不算 ——
+// 否则「同名目录」会通过存在性检查却在读取时失败，出现两侧判定不一致。
+function isFoundationFile(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function findProjectRoot(startDir) {
   let dir = path.resolve(startDir);
   for (;;) {
-    if (FOUNDATION_FILES.some((f) => fs.existsSync(path.join(dir, f)))) return dir;
+    if (FOUNDATION_FILES.some((f) => isFoundationFile(path.join(dir, f)))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) return path.resolve(startDir);
     dir = parent;
@@ -52,6 +62,12 @@ function readIfExists(p) {
   } catch {
     return null;
   }
+}
+
+// 空文件 / 只有空白 视同缺失 —— 存在但没写内容，等于判断依据没建立。
+// 不这样判的话，「缺失即报」会被一个空文件静默绕过。
+function isEmpty(content) {
+  return content === null || content.trim() === '';
 }
 
 async function main() {
@@ -76,7 +92,7 @@ async function main() {
 
   for (const name of FOUNDATION_FILES) {
     const content = readIfExists(path.join(projectRoot, name));
-    if (content === null) {
+    if (isEmpty(content)) {
       missing.push(name);
     } else {
       inject += `--- BEGIN ${name} ---\n${content}\n--- END ${name} ---\n\n`;

@@ -1,0 +1,117 @@
+/**
+ * lib/index.js 的接线测试。
+ *
+ * 不需要真 Cordis：用 mock ctx 验证 apply() 注册了什么形状的东西。
+ * 这部分此前完全没有覆盖 —— 而这正是最容易因 API 猜测出错的地方。
+ */
+
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, test } from 'node:test';
+
+import { apply, name as pluginName } from '../lib/index.js';
+
+const roots = [];
+function tempDir() {
+  const d = mkdtempSync(join(tmpdir(), 'index-test-'));
+  roots.push(d);
+  return d;
+}
+
+after(() => {
+  for (const d of roots) rmSync(d, { recursive: true, force: true });
+});
+
+/** 造一个够用的 mock ctx，记录注册了什么。 */
+function mockCtx({ services = ['systemPrompt', 'skills'], agents } = {}) {
+  const calls = { sections: [], skills: [], warnings: [], injects: [] };
+  const ctx = {
+    logger: { warn: (m) => calls.warnings.push(m) },
+    get: (key) => (key === 'agents' ? agents : undefined),
+    inject: (deps, cb) => {
+      calls.injects.push(deps);
+      if (!deps.every((d) => services.includes(d))) return; // 服务不存在则回调不执行
+      const scope = {};
+      if (deps.includes('systemPrompt')) scope.systemPrompt = { section: (def) => calls.sections.push(def) };
+      if (deps.includes('skills')) scope.skills = { register: (def) => calls.skills.push(def) };
+      cb(scope);
+    },
+  };
+  return { ctx, calls };
+}
+
+test('插件名与 cordis.patch.yml 的 loader 条目一致', () => {
+  assert.equal(pluginName, 'constitution-layer');
+});
+
+test('注册 prompt section：形状正确，且 interpolate 为 false', () => {
+  const { ctx, calls } = mockCtx();
+  apply(ctx);
+
+  assert.equal(calls.sections.length, 1, '应注册恰好一个 section');
+  const def = calls.sections[0];
+  assert.equal(typeof def.name, 'string');
+  assert.equal(def.name, 'constitution-layer:foundation');
+  assert.equal(def.order, 100);
+  assert.equal(def.interpolate, false, '必须 false —— 否则正文里的 {{...}} 会让装配抛错');
+  assert.equal(typeof def.text, 'function', 'text 必须是函数，才能每次装配重读');
+});
+
+test('section 的 text() 输出项目判断依据', () => {
+  const root = tempDir();
+  writeFileSync(join(root, 'CONSTITUTION.md'), '# 宪法\n');
+  writeFileSync(join(root, 'MENTAL-MODEL.md'), '# 心智模型\n');
+
+  const { ctx, calls } = mockCtx({ agents: { currentInitiator: () => ({ session: { header: { cwd: root } } }) } });
+  apply(ctx);
+
+  const text = calls.sections[0].text();
+  assert.match(text, /BEGIN CONSTITUTION\.md/);
+  assert.match(text, /BEGIN MENTAL-MODEL\.md/);
+  assert.doesNotMatch(text, /IMPORTANT-MISSING-FOUNDATION/);
+  assert.equal(calls.warnings.length, 0, '正常路径不应有告警');
+});
+
+test('取不到会话 cwd 时回退并告警（不静默）', () => {
+  const { ctx, calls } = mockCtx({ agents: { currentInitiator: () => ({}) } });
+  apply(ctx);
+
+  calls.sections[0].text();
+  assert.equal(calls.warnings.length, 1, '回退必须留痕');
+  assert.match(calls.warnings[0], /回退 process\.cwd\(\)/);
+});
+
+test('currentInitiator 抛错时不崩，同样告警', () => {
+  const { ctx, calls } = mockCtx({
+    agents: { currentInitiator: () => { throw new Error('no initiator'); } },
+  });
+  apply(ctx);
+
+  assert.doesNotThrow(() => calls.sections[0].text());
+  assert.equal(calls.warnings.length, 1);
+});
+
+test('注册技能：字段齐全，正文已去掉 frontmatter，且带 resourceBase', () => {
+  const { ctx, calls } = mockCtx();
+  apply(ctx);
+
+  assert.equal(calls.skills.length, 1, '应注册恰好一个技能');
+  const s = calls.skills[0];
+  assert.equal(s.name, 'constitution-brainstorm');
+  assert.equal(typeof s.description, 'string');
+  assert.ok(s.description.length > 0);
+  assert.ok(s.content.length > 0, '正文不应为空');
+  assert.doesNotMatch(s.content, /^---/, '正文不应残留 frontmatter 分隔符');
+  assert.equal(s.source, 'bundled');
+  assert.equal(s.resourceBase.kind, 'directory');
+  assert.match(s.resourceBase.path, /constitution-brainstorm$/);
+});
+
+test('服务缺失时回调不执行，插件装载不抛错', () => {
+  const { ctx, calls } = mockCtx({ services: ['systemPrompt'] }); // 没有 skills
+  assert.doesNotThrow(() => apply(ctx));
+  assert.equal(calls.sections.length, 1);
+  assert.equal(calls.skills.length, 0);
+});

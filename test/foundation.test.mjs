@@ -109,3 +109,30 @@ test('缓存不会跨路径串味', () => {
   assert.match(renderFoundation(a), /# A/);
   assert.match(renderFoundation(b), /# B/);
 });
+
+test('空文件视同缺失，不被静默放过', () => {
+  const root = tempDir();
+  writeFileSync(join(root, 'CONSTITUTION.md'), '');
+  writeFileSync(join(root, 'MENTAL-MODEL.md'), '# 心智模型\n');
+
+  const text = renderFoundation(root);
+
+  assert.match(text, /缺少项目专属判断依据：CONSTITUTION\.md/);
+  assert.doesNotMatch(text, /--- BEGIN CONSTITUTION\.md ---/, '空内容不应被当成有效判断依据注入');
+});
+
+test('只有空白的文件同样视同缺失', () => {
+  const root = tempDir();
+  writeFileSync(join(root, 'CONSTITUTION.md'), '   \n\n  \n');
+  assert.match(renderFoundation(root), /缺少项目专属判断依据：CONSTITUTION\.md/);
+});
+
+test('同名目录不算判断依据，也不会被当成已提供', () => {
+  const root = tempDir();
+  mkdirSync(join(root, 'CONSTITUTION.md'));
+
+  const text = renderFoundation(root);
+
+  assert.doesNotMatch(text, /--- BEGIN CONSTITUTION\.md ---/);
+  assert.match(text, /缺少项目专属判断依据：CONSTITUTION\.md/);
+});

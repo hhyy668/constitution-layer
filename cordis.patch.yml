@@ -1,0 +1,8 @@
+# constitution-layer 的 bundle patch 层。
+#
+# 选中该 bundle 时（profile 的 dsh.profile.bundles 里列出包名），这一层被叠加到
+# 组合树上：插入一个普通 cordis loader 条目，装载包入口 lib/index.js。
+# 条目里的 name 用裸包名，因为 bundle patch 是在 profile 目录下解析的。
+- insert:
+    - id: constitution-layer
+      name: 'constitution-layer'

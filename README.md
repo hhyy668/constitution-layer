@@ -30,6 +30,28 @@
 
 ## 安装
 
+同一个仓库，两种平台 —— 仓库根既是 DSH bundle，也是 CodeBuddy 插件市场。
+
+### DeepSeek Harness
+
+侧边栏 **Plugins** 页可以直接选，或者让智能体调用 `plugin_manager`：
+
+```
+action: install_bundle
+target: github:hhyy668/constitution-layer
+```
+
+开发时指向本地克隆即可（`link:` 走本地目录，改动立即生效）：
+
+```
+action: install_bundle
+target: link:/绝对路径/constitution-layer
+```
+
+装完立即生效，不需要重启。卸载用 `action: remove_bundle`，`target: constitution-layer`。
+
+### WorkBuddy / CodeBuddy
+
 ```
 # 1. 添加市场（指向本仓库）
 /plugin marketplace add <owner>/<repo>
@@ -49,6 +71,20 @@
 2. **缺失时**明确提示，并说明为什么必须先补齐才能开工
 3. **`constitution-brainstorm` 技能**引导你从零建立 —— 一次只问一个问题，取舍方向由你给
 4. 产出后走审查（BLOCKER / MAJOR / NIT 三档），收敛后才进入常规流程
+
+### 两个平台的注入点
+
+| 平台 | 注入方式 | 时机 |
+|---|---|---|
+| WorkBuddy / CodeBuddy | `SessionStart` 钩子（`hooks/session-start.js`） | 会话启动时注入一次 |
+| DeepSeek Harness | 常驻 prompt section（`lib/index.js`） | 每次装配重读，压缩、恢复、子会话都自然带上 |
+
+DSH 侧注册 section 时带 `interpolate: false`：DSH 的 runtime context 会对正文做
+`{{变量}}` 插值，未知变量直接让整次装配抛错。宪法是用户可自由编辑的正文，
+按原样注入才不会因为里面出现 `{{...}}` 而炸掉会话。
+
+DSH 侧的技能由插件包自行注册，**不依赖** `@deepseek-ai/dsh-skill-filesystem` ——
+后者在多数 profile 里默认是关的。
 
 ### 为什么不是一份文件
 
@@ -87,77 +123,43 @@
 
 ## 兼容性
 
-| 平台 | 技能 | 自动注入 | 备注 |
-|---|---|---|---|
-| WorkBuddy / CodeBuddy | ✅ 原生 | ✅ SessionStart 钩子 | 完整支持 |
-| DeepSeek Harness（dsh） | ✅ 原生 | ⚠️ 改用 `AGENTS.md` | 见下节 |
-| Claude Code | ✅ 格式相同 | ⚠️ 未实机验证 | 插件清单目录名与 WorkBuddy 互通 |
-| 其它智能体 | ✅ 可直接复用 | ❌ 需按各家机制适配 | |
+| 平台 | 状态 |
+|---|---|
+| WorkBuddy / CodeBuddy | 原生支持（`.codebuddy-plugin` 市场清单 + `SessionStart` 钩子） |
+| DeepSeek Harness | 原生支持（本仓库即 bundle：`package.json` 的 `dsh.bundle` + `cordis.patch.yml` + `lib/index.js`） |
+| Claude Code | 插件格式同源（`.claude-plugin`），钩子事件结构一致 —— 理论上可直接使用，**未实机验证** |
+| 其它智能体 | 技能部分（`SKILL.md`）可直接复用；钩子需按各家机制适配 |
 
-**判断依据本身（两份 md 文件）与平台无关**，在任何智能体上都能用。
-差异只在于「怎么保证它被看到」。
-
-## 在 DeepSeek Harness 上使用
-
-[dsh](https://github.com/deepseek-ai/deepseek-harness) 的技能格式与本插件一致
-（`name` + `description` 必填、目录式 `<name>/SKILL.md`），**技能无需改动**。
-
-### 安装技能
-
-dsh 的技能根，按优先级：
-
-| 优先级 | 路径 | 适用范围 |
-|---|---|---|
-| 100 | `<项目>/.dsh/skills/` | 仅该项目，最高优先 |
-| 200 | `<项目>/.agents/skills/` | 该项目，可提交进 git 团队共享 |
-| 400 | `~/.dsh/skills/` | 个人全局 |
-| 500 | `~/.agents/skills/` | 全局共享 |
-
-```bash
-mkdir -p ~/.dsh/skills
-cp -r plugins/constitution-layer/skills/constitution-brainstorm ~/.dsh/skills/
-```
-
-dsh 会热更新技能目录，改完不用重启。
-
-### 自动注入：改用 AGENTS.md
-
-dsh 没有 `SessionStart` 钩子，但有等价的 **`AGENTS.md` / `CLAUDE.md`** ——
-会话开始时作为**用户消息前缀无条件注入**（渲染上限 64KB，改动自动热替换）。
-这正是本插件「无条件推送、不给裁量空间」所需的机制。
-
-在项目的 `AGENTS.md` 里加一段即可：
-
-```markdown
-## 项目判断依据（开工前必读）
-
-本项目的判断依据在同目录两份文件中：
-- `CONSTITUTION.md` —— 什么能做、什么不能做
-- `MENTAL-MODEL.md` —— 遇到冲突时怎么决策
-
-**开工前必须完整读取这两份文件。缺失任一时停下并提示开发者补齐，不得跳过。**
-```
-
-> 想让判断依据**原文直接进入上下文**（而非让智能体去读），
-> 需要为 dsh 编写 Cordis 插件。dsh 目前是 v0.1 开发者预览版，
-> 核心接口仍在快速演进，插件方案建议等接口稳定后再做。
+DSH 与 CodeBuddy 共用同一份 `SKILL.md`，两条注入路径各自独立：
+装了 DSH bundle 就走 prompt section，装 CodeBuddy 插件就走钩子，互不干扰。
 
 ## 目录结构
 
 ```
+├── package.json                            DSH bundle 清单（dsh.bundle.patch → cordis.patch.yml）
+├── cordis.patch.yml                         DSH 侧装载条目
+├── lib/
+│   ├── index.js                            DSH 插件入口：常驻 section + 注册技能
+│   └── foundation.js                       判断依据的定位与渲染（纯逻辑，可单测）
+├── test/foundation.test.mjs                判据测试
 ├── CONSTITUTION.md                         ← 本项目自己的宪法（见下方说明）
 ├── MENTAL-MODEL.md                         ← 本项目自己的心智模型
 ├── FRICTION-LOG.md                         ← 使用中的摩擦记录
-├── .codebuddy-plugin/marketplace.json     市场清单
-└── plugins/constitution-layer/            插件包
+├── .codebuddy-plugin/marketplace.json      CodeBuddy 市场清单
+└── plugins/constitution-layer/             CodeBuddy 插件包
     ├── .codebuddy-plugin/plugin.json
     ├── hooks/
     │   ├── hooks.json                     注册 SessionStart
     │   └── session-start.js               注入判断依据 + 缺失检查
     └── skills/constitution-brainstorm/
-        ├── SKILL.md                       引导流程
+        ├── SKILL.md                       引导流程（两个平台共用）
         └── references/                    完备性检查判据 / 审查判据
 ```
+
+两套平台的清单文件互不引用：DSH 只看根目录的 `package.json` / `cordis.patch.yml` / `lib/`，
+CodeBuddy 只看 `.codebuddy-plugin/` 与 `plugins/constitution-layer/`。
+`lib/foundation.js` 与 `hooks/session-start.js` 是同一套判据的两份实现 ——
+改判据时两边都要动，`test/foundation.test.mjs` 覆盖的是 DSH 侧那份。
 
 根目录那三份文件不是模板，是**这个项目自己在用的**——本插件对自己生效（dogfooding）。
 它们是活的示例，可以直接拿来参考该写成什么样。

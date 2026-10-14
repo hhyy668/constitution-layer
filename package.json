@@ -1,0 +1,64 @@
+{
+  "name": "constitution-layer",
+  "version": "0.1.0",
+  "description": "给 AI 编码智能体加一层项目专属的判断依据：把项目根的 CONSTITUTION.md / MENTAL-MODEL.md 常驻注入系统提示词，缺文件时提示补齐，并提供 constitution-brainstorm 技能。DeepSeek Harness 插件；同一仓库同时是 CodeBuddy/WorkBuddy 插件市场。",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/foundation.js",
+    "cordis.patch.yml",
+    "plugins/constitution-layer/skills/**",
+    "CONSTITUTION.md",
+    "MENTAL-MODEL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "constitution",
+    "mental-model",
+    "decision-axes",
+    "workflow",
+    "skills"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-skill": "*",
+    "@deepseek-ai/dsh-system-prompt": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-skill": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-system-prompt": {
+      "optional": true
+    }
+  }
+}

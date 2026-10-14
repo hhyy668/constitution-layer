@@ -1,6 +1,6 @@
 {
   "name": "constitution-layer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "给 AI 编码智能体加一层项目专属的判断依据：把项目根的 CONSTITUTION.md / MENTAL-MODEL.md 常驻注入系统提示词，缺文件时提示补齐，并提供 constitution-brainstorm 技能。DeepSeek Harness 插件；同一仓库同时是 CodeBuddy/WorkBuddy 插件市场。",
   "license": "MIT",
   "type": "module",

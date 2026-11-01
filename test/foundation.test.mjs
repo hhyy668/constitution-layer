@@ -76,7 +76,9 @@ test('两份都缺时，回退起点目录并同时报缺', () => {
 
   assert.equal(findProjectRoot(root), root);
   assert.match(text, /缺少项目专属判断依据：CONSTITUTION\.md, MENTAL-MODEL\.md/);
-  assert.match(text, /「本次用不到」不构成跳过理由/, '作者的立场措辞不应被软化掉');
+  assert.match(text, /「本次用不到」不构成对写入类工作跳过引导的理由/, '作者的立场措辞不应被软化掉');
+  assert.match(text, /只读、解释、调研类任务直接完成/, '缺失提示应按任务类型分流，不对只读任务要求访谈');
+  assert.match(text, /无人可对话.*报告缺失并明确退出/, '非交互环境应有明确出口');
   assert.match(text, new RegExp(OPT_OUT_FILE), '应同时给出正当出口');
 });
 

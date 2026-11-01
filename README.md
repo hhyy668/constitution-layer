@@ -65,7 +65,7 @@
 | Claude Code | 市场 `.claude-plugin/marketplace.json` | `/constitution-layer:constitution-brainstorm` |
 | Codex CLI | 市场 `.agents/plugins/marketplace.json` | `/skills` 或输入 `$` 选择 |
 
-以下 GitHub 命令在包含 `0.3.0` 的代码推送后生效；当前工作区测试请使用本地目录入口。
+GitHub 入口对应已发布的 `0.3.0`（tag `v0.3.0`）；本地开发请使用各节给出的本地目录入口。
 
 ### DeepSeek Harness
 

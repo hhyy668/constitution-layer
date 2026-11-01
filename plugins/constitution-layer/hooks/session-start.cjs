@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SessionStart hook: 常驻注入判断依据 + 开工前缺失检查
+// CodeBuddy / Claude Code / Codex 的 SessionStart hook：注入判断依据与缺失提示。
 //
 // 相比 bash 实现的改进：
 //   1. JSON 由 JSON.stringify 生成，控制字符必定正确转义（bash 手工转义会漏）
@@ -72,20 +72,24 @@ function existsAny(p) {
 }
 
 // 沿起点目录向上解析适用范围。
-// 退出标记优先于判断依据：同一层既有宪法又有标记时标记生效 —— 开关就该能关掉。
+// 记住最近的一组依据，仍扫描到项目边界；范围内任一退出标记优先。
 // 走到带 .git 的目录就停：monorepo 的宪法放在 git 根仍然找得到，
 // 而放在 git 根之上的文件不再跨边界去管辖无关项目。
 function resolveScope(startDir) {
   const base = path.resolve(startDir);
   let dir = base;
+  let foundationRoot;
   for (;;) {
     if (isFoundationFile(path.join(dir, OPT_OUT_FILE))) return { optedOut: true, root: base };
-    if (FOUNDATION_FILES.some((f) => isFoundationFile(path.join(dir, f)))) return { optedOut: false, root: dir };
-    if (existsAny(path.join(dir, PROJECT_BOUNDARY))) return { optedOut: false, root: base };
+    if (foundationRoot === undefined && FOUNDATION_FILES.some((f) => isFoundationFile(path.join(dir, f)))) {
+      foundationRoot = dir;
+    }
+    if (existsAny(path.join(dir, PROJECT_BOUNDARY))) break;
     const parent = path.dirname(dir);
-    if (parent === dir) return { optedOut: false, root: base };
+    if (parent === dir) break;
     dir = parent;
   }
+  return { optedOut: false, root: foundationRoot ?? base };
 }
 
 // 读取文件，去掉尾部换行（与 bash 的 $(<file) 行为一致）
@@ -150,7 +154,7 @@ async function main() {
       `本项目缺少项目专属判断依据：${missing.join(', ')}`,
       '',
       '开工前必须先补齐 —— 使用 constitution-brainstorm 技能引导开发者建立。',
-      '开发者必须给出取舍方向，智能体不得代笔。',
+      '立场和条款文本由开发者确认；智能体只可转录已确认文本，不得自行推断价值条款。',
       '',
       '「本次用不到」不构成跳过理由：判断依据的作用恰在于你尚未意识到需要它的时候拦住你。',
       '',

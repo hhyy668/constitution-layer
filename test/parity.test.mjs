@@ -222,3 +222,28 @@ test('两套实现都转义正文里的插件标记', () => {
   // 钩子侧不用外框，故正文里那条被转义后一条都不应剩
   assert.equal(fromHook.split('</PROJECT-FOUNDATION>').length - 1, 0);
 });
+
+test('两套实现：根退出标记覆盖更近的子目录依据', () => {
+  const root = tempDir();
+  writeFileSync(join(root, OPT_OUT_FILE), '整个项目关闭\n');
+  const sub = join(root, '子目录 app');
+  mkdirSync(sub);
+  writeFileSync(join(sub, CONSTITUTION), '# 子宪法\n');
+  writeFileSync(join(sub, MENTAL_MODEL), '# 子心智模型\n');
+
+  compareBoth(sub, { present: [], missing: [], root: null });
+  assert.equal(renderFoundation(sub), '');
+  assert.equal(runHook(sub), '');
+});
+
+test('两套实现：外层退出标记不跨越 Git 指针文件', () => {
+  const outer = plainDir();
+  writeFileSync(join(outer, OPT_OUT_FILE), '关闭外层\n');
+  const inner = join(outer, 'worktree');
+  mkdirSync(inner);
+  writeFileSync(join(inner, '.git'), 'gitdir: ../main/.git/worktrees/example\n');
+  writeFileSync(join(inner, CONSTITUTION), '# 独立宪法\n');
+  writeFileSync(join(inner, MENTAL_MODEL), '# 独立心智模型\n');
+
+  compareBoth(inner, { present: [CONSTITUTION, MENTAL_MODEL], missing: [], root: null });
+});

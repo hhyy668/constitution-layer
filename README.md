@@ -1,223 +1,180 @@
 # constitution-layer
 
-给 AI 编码智能体加一层**项目专属的判断依据**。
+由开发者确定项目红线与取舍，为 AI 编码智能体持续提供**项目专属的判断依据**。
 
-## 它补的是什么缺口
-
-现有的技能体系（比如 [superpowers](https://github.com/obra/superpowers)）管的是「**怎么做事**」——
-先设计再动手、TDD、系统化调试、任务之间做代码审查。这些是**流程纪律**。
-
-但它不管「**这个项目凭什么存在**」：
-
-- 什么绝对不能做？
-- 两种做法都对时，优先保哪个？
-- 这个功能值得做吗，还是应该砍掉？
-
-缺了这层，智能体遇到分歧只能反问你，把认知负担原样甩回给开发者。
-更糟的是，它可能产出一堆看起来很完整、但方向从未被验证过的东西。
-
-## 两个文件
+## 两份依据，各有职责
 
 | 文件 | 回答的问题 | 例子 |
 |---|---|---|
-| `CONSTITUTION.md` | 什么能做、什么不能做 | 「不向第三方发送用户数据」 |
-| `MENTAL-MODEL.md` | 遇到冲突时怎么决策 | 「完备 > 速度」「严格 > 授权」 |
+| `CONSTITUTION.md` | 哪些方案不能接受 | 不向第三方上传用户原始数据 |
+| `MENTAL-MODEL.md` | 合法方案之间怎么取舍 | 在满足需求的方案中优先选择更简单的实现 |
 
-两份都由**开发者本人**制定 —— 它们是立场，不是能推导出来的结论。
-智能体只负责引导和完备性检查，**不代笔**。
+立场由开发者决定。智能体可以引导、检查，并转录已确认的文本；不能从现有代码习惯推断价值条款。宪法先排除不可接受的方案，心智模型再给剩余方案排序。
 
-因为只有真正清楚产品定位的人，才写得出来。
+插件独立可用，可以组合 superpowers、Spec Kit 或现有团队流程。Spec Kit 本身已有宪法、想法评估和规格闭环；本项目专注于人工掌握立场、区分红线与取舍，以及在宿主上下文中提供依据，不接管规格、计划和实现。调研见 [对比报告](SPEC-KIT-COMPARISON.md)，该报告保留为 `0.2.0` 历史快照。
+
+> 建议器，不是门禁。本插件不拦截工具，规则是否被遵守仍依赖智能体。安装成功、hook 执行成功和模型遵守规则是三件不同的事。
 
 ## 安装
 
-同一个仓库，两种平台 —— 仓库根既是 DSH bundle，也是 CodeBuddy 插件市场。
+需要 Node.js 22 或更新版本，并确保宿主运行环境可以执行 `node`。同一仓库提供 DSH bundle、CodeBuddy 市场、Claude Code 市场和 Codex 市场；各平台独立读取自己的清单。
+
+以下 GitHub 命令在包含 `0.3.0` 的代码推送后生效；当前工作区测试请使用本地目录入口。
 
 ### DeepSeek Harness
 
-侧边栏 **Plugins** 页可以直接选，或者让智能体调用 `plugin_manager`：
+在 Plugins 页面选择 bundle，或调用 `plugin_manager`：
 
-```
+```text
 action: install_bundle
 target: github:hhyy668/constitution-layer
 ```
 
-开发时指向本地克隆即可（`link:` 走本地目录，改动立即生效）：
+开发时使用本地目录：
 
-```
+```text
 action: install_bundle
 target: link:/绝对路径/constitution-layer
 ```
 
-装完立即生效，不需要重启。卸载用 `action: remove_bundle`，`target: constitution-layer`。
+卸载：`action: remove_bundle`，`target: constitution-layer`。bundle 沿用宿主现有装载机制。
 
 ### WorkBuddy / CodeBuddy
 
+在宿主中运行：
+
+```text
+/plugin marketplace add hhyy668/constitution-layer
+/plugin install constitution-layer@constitution-layer-dev
 ```
-# 1. 添加市场（指向本仓库）
-/plugin marketplace add <owner>/<repo>
 
-# 2. 安装插件
-/plugin install constitution-layer@<marketplace-name>
+本地开发时将第一条的仓库名替换为本地仓库绝对路径。市场名来自 `.codebuddy-plugin/marketplace.json`，保留现有的 `constitution-layer-dev`。
+
+卸载使用宿主 `/plugin` 管理器。安装或更新后按宿主要求重载插件、启动新会话。
+
+### Claude Code
+
+在 Claude Code 中运行：
+
+```text
+/plugin marketplace add hhyy668/constitution-layer
+/plugin install constitution-layer@constitution-layer
 ```
 
-`<marketplace-name>` 取自 `.codebuddy-plugin/marketplace.json` 的 `name` 字段。
-也可以只跑 `/plugin` 打开管理器，从列表里直接选。
+本地开发可以直接在终端启动：
 
-安装后，打开任意项目都会自动生效。
+```sh
+claude --plugin-dir /绝对路径/constitution-layer/plugins/constitution-layer
+```
 
-## 它怎么工作
+也可以将本地仓库路径添加为市场，再安装相同的插件选择器。市场位于根 `.claude-plugin/marketplace.json`，插件清单位于共享插件目录的 `.claude-plugin/plugin.json`。
 
-1. **会话启动时**自动向上逐级查找项目根，注入该项目的两份文件
-2. **缺失时**明确提示，说明先补齐的理由，并指出正当的退出方式
-3. **`constitution-brainstorm` 技能**引导你从零建立 —— 一次只问一个问题，取舍方向由你给
-4. 产出后走审查（BLOCKER / MAJOR / NIT 三档），收敛后才进入常规流程
+引导技能：`/constitution-layer:constitution-brainstorm`。卸载：`/plugin uninstall constitution-layer@constitution-layer`。安装后启动新会话；更新后按宿主提示重启。
 
-> **它是建议器，不是门禁。** 插件不拦任何工具：缺文件时你照样改得动代码。
-> 合规靠模型自觉，取舍权始终在开发者手里。这条是设计立场，不是待办事项。
+### Codex CLI / 本地 Codex 插件环境
 
-### 两个平台的注入点
+终端运行：
 
-| 平台 | 注入方式 | 时机 |
+```sh
+codex plugin marketplace add hhyy668/constitution-layer
+codex plugin add constitution-layer@constitution-layer
+```
+
+本地开发时把第一条的 GitHub 仓库替换为本地仓库绝对路径。也可以在 Codex `/plugins` 中选择市场和插件。
+
+市场位于根 `.agents/plugins/marketplace.json`；插件采用官方仍支持的 `.codex-plugin/plugin.json` 兼容清单，显式引用 `skills/` 和 `hooks/codex.json`。
+
+安装后启动新会话，并在 `/hooks` 中审阅并信任本插件 hook；仅安装插件不会自动授予 hook 信任。被禁用、尚未信任或管理员禁止的 hooks 不会提供注入能力。可用 `/skills` 或输入 `$` 选择 `constitution-brainstorm` 引导技能。
+
+卸载：`codex plugin remove constitution-layer@constitution-layer`。若不再需要市场，可运行 `codex plugin marketplace remove constitution-layer`。
+
+这里支持能运行本地脚本的 Codex 插件环境。IDE 单独安装技能不等于安装了本插件；网页安装、云端执行或远程宿主不保证能运行本地 hook。
+
+## 注入时机与文件更新
+
+| 平台 | 实际机制 | 更新行为 |
 |---|---|---|
-| WorkBuddy / CodeBuddy | `SessionStart` 钩子（`hooks/session-start.cjs`） | 会话启动时注入一次 |
-| DeepSeek Harness | 常驻 prompt section（`lib/index.js`） | 每次装配重读，压缩、恢复、子会话都自然带上 |
+| DSH | `systemPrompt.section()`，`text` 函数 | 每次提示词装配重新定位并读取；正文使用 mtime + size 缓存 |
+| CodeBuddy / WorkBuddy | `SessionStart` hook | 宿主触发 SessionStart 时读取 |
+| Claude Code | `SessionStart` hook | 启动、恢复、清空、压缩、fork 等宿主触发事件时读取 |
+| Codex 本地环境 | 受宿主信任控制的 `SessionStart` hook | 宿主触发事件时读取；不是每条请求都重读 |
 
-DSH 侧注册 section 时带 `interpolate: false`：DSH 的 runtime context 会对正文做
-`{{变量}}` 插值，未知变量直接让整次装配抛错。宪法是用户可自由编辑的正文，
-按原样注入才不会因为里面出现 `{{...}}` 而炸掉会话。
+Hook 没有 source 白名单，是否触发某个事件取决于宿主版本。会话内编辑依据后，hook 平台应重新开启会话或显式读取当前文件，不能把旧注入当作新版。DSH 的每次装配读取也不等于所有宿主都拥有相同生命周期保证。
 
-DSH 侧的技能由插件包自行注册，**不依赖** `@deepseek-ai/dsh-skill-filesystem` ——
-后者在多数 profile 里默认是关的。
+Codex 的 hook 上下文预算设为 20000；超出宿主预算时正文可能被保存为文件或缩略。宪法默认 50 行、心智模型 105 行，两份合计占用上下文；这不是运行时硬截断。
 
-DSH 侧对这段文本做了**顶层兜底**：渲染失败只降级为空串并告警，绝不让装配失败 ——
-一旦抛出，该 profile 下每个会话的每一次模型请求都会不可用，收益与爆炸半径不成比例。
+## 项目边界与退出
 
-### 三个边界（都由机制守住，不靠约定）
+从当前工作目录向上查找，记住最近的一组依据，同时继续检查退出标记，直到最近的 `.git` 文件、目录或文件系统根。
 
-**1. 项目边界** —— 向上查找**不越过最近的 `.git`**，与 DSH 自己的项目根约定一致
-（`projectRootMarkers: ['.git']`）。
+- 不越过最近 `.git`，因此外层依据不会管理无关 Git 项目；支持 worktree / submodule 的 Git 指针文件。
+- monorepo 根目录的依据可以从子目录找到。若子目录有自己的任一判断文件，使用该目录的一组，不拼接父层文件。
+- 项目范围内任一 `NO-CONSTITUTION.md` 常规文件优先于判断依据。Git 根的退出标记覆盖该项目内的子目录依据。
+- 嵌套 Git 仓库独立：外层退出标记不跨越其 Git 边界。
+- 退出标记由开发者创建；智能体不能为了消除提示创建它。范围关闭后不注入、不提示缺失。
+- 两份依据任一缺失、空白或不可读时提示补齐；现有文件保留，不重新建立全部依据。
 
-- monorepo：宪法放在 git 根，从任意子目录都找得到
-- 放在 git 根**之上**的文件不会跨边界管辖无关项目 —— 否则 `C:\` 或你的 home 下
-  放一个 `CONSTITUTION.md` 就会静默支配这台机器上的每个项目
+在没有 `.git` 的目录中，扫描会继续到文件系统根；需要明确项目隔离时，应使用 Git 项目边界。
 
-**2. 退出开关** —— 在项目根放 `NO-CONSTITUTION.md`，插件对该项目不再注入任何内容，
-也不再提示缺失。标记优先于判断依据（同一层两者并存时标记生效）。
+正文中的插件自有标记被转义为 `&lt;...&gt;`，避免内容闭合插件外框。这只保护插件标记的结构，不是对任意正文的语义安全保证。
 
-给这条出口是刻意的：一个既无法强制、又无法关掉的提醒，只会训练所有人忽略它。
-但**这个文件属于开发者**，智能体不得为了让提示消失而创建它 —— 技能里写明了这一条。
+## 初始化与审查
 
-**3. 正文不得伪造插件标记** —— 正文里出现 `<PROJECT-FOUNDATION>`、
-`<IMPORTANT-MISSING-FOUNDATION>`、`<FOUNDATION-LOCATION>` 等插件自有标记时一律转义成
-实体。转义是**断开标记本身**（`&lt;...&gt;`），不是加前缀 —— 加前缀的话
-`\</PROJECT-FOUNDATION>` 里仍含完整标记，照样能被当成外框结束。
+`constitution-brainstorm` 在缺任一依据或开发者明确要求建立、修订时使用：
 
-没有这条，正文可以提前闭合外框，把插件自己的缺失提示挤到框外（可复现）——
-DSH 核心的 `agent-instructions` 对 `</system-reminder>` 做的是同一件事。
+1. 一次询问一个尚未决定的问题，定位使用者与最不能做错的事。
+2. 开发者确定取舍方向和适用条件。
+3. 确认条款文本后转录落盘；已有依据齐备的普通任务直接继续。
+4. 完备性检查后按 BLOCKER / MAJOR / NIT 审查。宪法冲突是 BLOCKER，导致返工或定位偏离是 MAJOR；普通偏好忽略。
 
-### 为什么不是一份文件
+重要判断附“规则位置与原文、候选方案与取舍、决定、验证证据”，未验证就写待验证。重复问题可以复用既有授权修复实现，不能据此自动修宪。修订在项目现有变更记录中留痕；本仓库使用 [CHANGELOG.md](CHANGELOG.md)。
 
-两者回答的是不同的问题，且**权威级别不同**：
+不安装 superpowers 也能完成本插件的引导和判据审查。已有流程工具时继续沿用其开发流程，本项目不复制上游技能。
 
-- 宪法是**红线** —— 什么绝对不能做。它是否决性的，任何情况下都不让步
-- 心智模型是**决策轴** —— 两种做法都对时优先保哪个。它是排序性的，用于取舍
+## 验证与效果评估
 
-分开是为了让「否决」和「排序」各自可维护、可审查，不会互相稀释。
-
-**注意**：在当前实现里两份**都是常驻注入的**（同一段 section，每次装配重读），
-所以 50 行 / 105 行这两个上限应视为**合计预算**，而不是「心智模型可以随便写：
-反正只在需要时才加载」。按需加载需要一个「决策冲突」检测触发点，现在没有。
-
-### 一个宪法长什么样
-
-每条规则要能判定是否被违反，所以不写「要写好代码」，写：
-
-```markdown
-## 绝不做
-| 禁止 | 原因 |
-|---|---|
-| 把私有假设写进技能 | 私有信息、内部路径、真实项目名 |
-| 缺宪法就开工 | 无判断依据时智能体只能反问 |
-
-## 停止原则
-无人在场时，一律停下等待，不放行、不降级。
-「本轮不需要」不构成豁免理由。
+```sh
+npm test
+claude plugin validate ./plugins/constitution-layer
+claude plugin validate ./.claude-plugin/marketplace.json
+npm pack --dry-run --json
 ```
 
-## 与 superpowers 的关系
+测试涵盖定位与退出、空文件、标记转义、DSH 接线、两套实现一致性，以及各市场对应的独立安装包执行。平台测试只复制插件目录到含中文、空格的临时路径，核对技能、参考文件和 hook 自包含。
 
-**组合，不是依赖。**
+`0.3.0` 本地验证使用 Windows、Claude Code `2.1.316`、Codex CLI `0.165.0`。Claude 验证清单；Codex 使用临时 CLI 配置发现本地市场；Node 测试直接执行发布目录中的 hook。没有修改全局安装或 hook 信任，没有运行真实模型会话，也不声称这些是最低支持版本。其他系统与宿主端到端行为尚需实测。
 
-本插件不 fork、不改写、不复制上游任何技能内容。
-它只做上游不做的那两件事：**开工前的合法性检验** 与 **判断依据的持久化**。
+[行为评估场景](evals/README.md) 提供无插件、宿主指令文件、本插件三组对照。现有机制测试不证明模型遵守率、减少反问或减少返工，行为评估材料未附虚构成绩。
 
-**没装 superpowers 也能完整使用** —— 本插件的核心能力不依赖任何外部插件。
-装了则可以在后续审查环节沿用它的两阶段流程。
+## 目录
 
-## 兼容性
-
-| 平台 | 状态 |
-|---|---|
-| WorkBuddy / CodeBuddy | 原生支持（`.codebuddy-plugin` 市场清单 + `SessionStart` 钩子） |
-| DeepSeek Harness | 原生支持（本仓库即 bundle：`package.json` 的 `dsh.bundle` + `cordis.patch.yml` + `lib/index.js`） |
-| Claude Code | 插件格式同源（`.claude-plugin`），钩子事件结构一致 —— 理论上可直接使用，**未实机验证** |
-| 其它智能体 | 技能部分（`SKILL.md`）可直接复用；钩子需按各家机制适配 |
-
-DSH 与 CodeBuddy 共用同一份 `SKILL.md`，两条注入路径各自独立：
-装了 DSH bundle 就走 prompt section，装 CodeBuddy 插件就走钩子，互不干扰。
-
-## 目录结构
-
-```
-├── package.json                            DSH bundle 清单（dsh.bundle.patch → cordis.patch.yml）
-├── cordis.patch.yml                         DSH 侧装载条目
-├── lib/
-│   ├── index.js                            DSH 插件入口：常驻 section + 注册技能
-│   └── foundation.js                       判断依据的定位与渲染（纯逻辑，可单测）
-├── test/
-│   ├── foundation.test.mjs                 判据测试（定位与渲染）
-│   ├── index.test.mjs                      插件装载测试（section / 技能注册）
-│   └── parity.test.mjs                     两套实现的判据一致性
-├── CONSTITUTION.md                         ← 本项目自己的宪法（见下方说明）
-├── MENTAL-MODEL.md                         ← 本项目自己的心智模型
-├── FRICTION-LOG.md                         ← 使用中的摩擦记录
-├── .codebuddy-plugin/marketplace.json      CodeBuddy 市场清单
-└── plugins/constitution-layer/             CodeBuddy 插件包
-    ├── .codebuddy-plugin/plugin.json
-    ├── hooks/
-    │   ├── hooks.json                     注册 SessionStart
-    │   └── session-start.cjs              注入判断依据 + 缺失检查
-    └── skills/constitution-brainstorm/
-        ├── SKILL.md                       引导流程（两个平台共用）
-        └── references/                    完备性检查判据 / 审查判据
+```text
+.agents/plugins/marketplace.json           Codex 市场
+.claude-plugin/marketplace.json            Claude Code 市场
+.codebuddy-plugin/marketplace.json        CodeBuddy 市场
+package.json / cordis.patch.yml           DSH bundle
+lib/                                     DSH 入口与判断依据实现
+plugins/constitution-layer/
+  .claude-plugin/plugin.json              Claude 清单
+  .codex-plugin/plugin.json               Codex 清单
+  .codebuddy-plugin/plugin.json           CodeBuddy 清单
+  hooks/hooks.json                       Claude / CodeBuddy 配置
+  hooks/codex.json                       Codex 配置
+  hooks/session-start.cjs                 三个平台共享的独立脚本
+  skills/constitution-brainstorm/         所有平台共用技能与判据
+test/                                    机制与平台分发测试
+evals/                                   行为场景与对照说明
+docs/plans/                              本轮设计与实施记录
 ```
 
-两套平台的清单文件互不引用：DSH 只看根目录的 `package.json` / `cordis.patch.yml` / `lib/`，
-CodeBuddy 只看 `.codebuddy-plugin/` 与 `plugins/constitution-layer/`。
-`lib/foundation.js` 与 `hooks/session-start.cjs` 是同一套判据的两份实现 ——
-改判据时两边都要动，`test/foundation.test.mjs` 覆盖的是 DSH 侧那份。
+`lib/foundation.js` 与独立 CJS hook 仍保留两份实现；更改判据时两边同步，parity 测试用于检查漂移。DSH section 使用 `interpolate: false`，避免正文模板字符被宿主插值；渲染错误降级为空并告警。
 
-根目录那三份文件不是模板，是**这个项目自己在用的**——本插件对自己生效（dogfooding）。
-它们是活的示例，可以直接拿来参考该写成什么样。
-用户项目里的两份文件是各自独立生成的，不来自这里。
+根目录的 `CONSTITUTION.md`、`MENTAL-MODEL.md` 是本项目自己使用的依据，不是用户项目模板；插件不会复制它们来替用户决定价值观。
 
-## 设计取向
+## 接口依据
 
-- **建议要硬，机制要诚实** —— 提示措辞不留「本轮用不到」的解释空间，但插件**不假装自己是门禁**：
-  它不拦任何工具，合规靠模型自觉，退出开关交回开发者。
-  （此前这里写的是「机械判据优先于裁量」，与实现不符：一段不拦任何东西的提示词不是机械判据。）
-- **规则要能判定** —— 无法验证的条款等于没有；所以每加一个判据都配一条测试
-- **边界靠机制，不靠约定** —— 项目边界、退出开关、标记转义全部由代码守住，各有测试钉住
-- **精简是硬约束** —— 宪法 50 行、心智模型 105 行封顶；超限时放宽上限而不是砍内容
-- **规则靠实测长出来** —— 每条防护都对应一次真实复现过的失败
-
-上面三条边界各自对应一次实证复现，不是推演出来的：
-
-| 边界 | 复现出来的失败 |
-|---|---|
-| 不越过 `.git` | 外层目录的宪法被无关项目静默继承；同层兄弟目录互相污染 |
-| 退出开关 | 既无法强制又无法关闭的提醒，唯一确定的产出是让人脱敏 |
-| 标记转义 | 正文里的 `</PROJECT-FOUNDATION>` 提前闭合外框，把插件自己的缺失提示挤到框外 |
+- [Claude Code 插件清单](https://code.claude.com/docs/en/plugins-reference)与 [Hooks](https://code.claude.com/docs/en/hooks)。
+- [官方 OpenAI 插件打包说明](https://developers.openai.com/plugins/build/plugins)、[Codex Hooks](https://developers.openai.com/codex/hooks)与 [Skills](https://developers.openai.com/codex/skills)。
 
 ## License
 

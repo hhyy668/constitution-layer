@@ -1,0 +1,13 @@
+{
+  "name": "constitution-layer",
+  "description": "开发者掌握项目红线与取舍的判断依据插件市场。",
+  "owner": { "name": "constitution-layer contributors" },
+  "plugins": [
+    {
+      "name": "constitution-layer",
+      "source": "./plugins/constitution-layer",
+      "description": "由开发者确定项目红线与取舍，向编码智能体提供项目判断依据。",
+      "version": "0.3.0"
+    }
+  ]
+}

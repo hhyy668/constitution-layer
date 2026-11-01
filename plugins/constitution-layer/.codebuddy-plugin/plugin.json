@@ -1,7 +1,7 @@
 {
   "name": "constitution-layer",
-  "description": "为项目建立专属宪法与心智模型，在任何 spec、plan 或编码之前完成合法性检验",
-  "version": "0.2.0",
+  "description": "由开发者确定项目红线与取舍，为编码智能体提供项目判断依据。",
+  "version": "0.3.0",
   "author": {
     "name": "constitution-layer contributors"
   },

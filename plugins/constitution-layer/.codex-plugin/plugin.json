@@ -1,0 +1,8 @@
+{
+  "name": "constitution-layer",
+  "version": "0.3.0",
+  "description": "由开发者确定项目红线与取舍；会话启动时注入判断依据，提供 constitution-brainstorm 引导技能。",
+  "author": { "name": "constitution-layer contributors" },
+  "skills": "./skills/",
+  "hooks": "./hooks/codex.json"
+}

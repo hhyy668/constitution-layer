@@ -222,6 +222,57 @@ test('去掉退出标记后立刻恢复注入（不留陈旧判定）', () => {
   assert.match(renderFoundation(root), /# 宪法/, '开关要能立刻打开，不能等重启');
 });
 
+test('项目根的退出标记覆盖子目录自己的判断依据', () => {
+  const root = tempDir();
+  writeFileSync(join(root, OPT_OUT_FILE), '整个项目关闭\n');
+  const sub = join(root, 'packages', 'app');
+  mkdirSync(sub, { recursive: true });
+  writeFileSync(join(sub, 'CONSTITUTION.md'), '# 子目录宪法\n');
+  writeFileSync(join(sub, 'MENTAL-MODEL.md'), '# 子目录心智模型\n');
+
+  assert.equal(resolveScope(sub).optedOut, true);
+  assert.equal(renderFoundation(sub), '');
+});
+
+test('退出标记不越过嵌套 Git 仓库边界', () => {
+  const outer = tempDir();
+  writeFileSync(join(outer, OPT_OUT_FILE), '只关闭外层项目\n');
+  const inner = join(outer, 'vendor', 'independent');
+  mkdirSync(join(inner, '.git'), { recursive: true });
+  writeFileSync(join(inner, 'CONSTITUTION.md'), '# 独立项目宪法\n');
+  writeFileSync(join(inner, 'MENTAL-MODEL.md'), '# 独立项目心智模型\n');
+
+  assert.equal(resolveScope(inner).optedOut, false);
+  assert.match(renderFoundation(inner), /独立项目宪法/);
+});
+
+test('Git 指针文件也是退出范围的边界', () => {
+  const outer = plainDir();
+  writeFileSync(join(outer, OPT_OUT_FILE), '外层关闭\n');
+  const inner = join(outer, 'worktree');
+  mkdirSync(inner);
+  writeFileSync(join(inner, '.git'), 'gitdir: ../main/.git/worktrees/example\n');
+  writeFileSync(join(inner, 'CONSTITUTION.md'), '# worktree 宪法\n');
+
+  assert.equal(resolveScope(inner).optedOut, false);
+  assert.match(renderFoundation(inner), /worktree 宪法/);
+});
+
+test('扫描祖先退出标记时仍选最近的一组依据，不混合父层文件', () => {
+  const root = tempDir();
+  writeFileSync(join(root, 'CONSTITUTION.md'), '# 根宪法\n');
+  writeFileSync(join(root, 'MENTAL-MODEL.md'), '# 根心智模型\n');
+  const sub = join(root, 'app');
+  mkdirSync(sub);
+  writeFileSync(join(sub, 'MENTAL-MODEL.md'), '# 子层心智模型\n');
+
+  const text = renderFoundation(sub);
+  assert.equal(resolveScope(sub).root, sub);
+  assert.match(text, /子层心智模型/);
+  assert.doesNotMatch(text, /根宪法|根心智模型/);
+  assert.match(text, /缺少项目专属判断依据：CONSTITUTION\.md/);
+});
+
 // ── 边界 3：正文不得伪造插件标记 ──────────────────────────────────────
 
 test('正文无法伪造插件标记：外框只能由插件自己闭合', () => {
